@@ -1,7 +1,10 @@
 package auth
 
-import "github.com/gofiber/fiber/v3"
+import (
+	"github.com/gofiber/fiber/v3"
+)
 
-func SetupRoutes(app *fiber.App) {
-	app.Post("/api/auth/telegram", TelegramAuthHandler)
+// SetupRoutes регистрирует маршруты в Fiber
+func (s *AuthService) SetupRoutes(app *fiber.App) {
+	app.Post("/api/auth/telegram", s.TelegramAuthHandler)
 }

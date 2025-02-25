@@ -1,17 +1,30 @@
 package auth
 
 import (
-	"fmt"
-	"os"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/golang-jwt/jwt/v5"
+	"github.com/rajivgeraev/flippy-api/internal/config"
+	"github.com/rajivgeraev/flippy-api/internal/utils"
 	initdata "github.com/telegram-mini-apps/init-data-golang"
 )
 
+// AuthService – структура для обработки авторизации
+type AuthService struct {
+	cfg        *config.Config
+	jwtService *utils.JWTService
+}
+
+// NewAuthService – конструктор AuthService
+func NewAuthService(cfg *config.Config) *AuthService {
+	return &AuthService{
+		cfg:        cfg,
+		jwtService: utils.NewJWTService(cfg.JWTSecret),
+	}
+}
+
 // TelegramAuthHandler проверяет initData, создает JWT и возвращает его
-func TelegramAuthHandler(c fiber.Ctx) error {
+func (s *AuthService) TelegramAuthHandler(c fiber.Ctx) error {
 	var payload struct {
 		InitData string `json:"init_data"`
 	}
@@ -20,15 +33,9 @@ func TelegramAuthHandler(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
 	}
 
-	// Получаем токен бота из переменных окружения
-	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
-	if botToken == "" {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Bot token not configured"})
-	}
-
 	// Проверяем initData
 	expiration := 24 * time.Hour
-	if err := initdata.Validate(payload.InitData, botToken, expiration); err != nil {
+	if err := initdata.Validate(payload.InitData, s.cfg.TelegramBotToken, expiration); err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid Telegram data"})
 	}
 
@@ -39,7 +46,7 @@ func TelegramAuthHandler(c fiber.Ctx) error {
 	}
 
 	// Генерируем JWT
-	jwtToken, err := generateJWT(data.User.ID)
+	jwtToken, err := s.jwtService.GenerateToken(data.User.ID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate JWT"})
 	}
@@ -54,20 +61,4 @@ func TelegramAuthHandler(c fiber.Ctx) error {
 			"photo_url":  data.User.PhotoURL,
 		},
 	})
-}
-
-// generateJWT создает JWT токен для пользователя
-func generateJWT(userID int64) (string, error) {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		return "", fmt.Errorf("JWT_SECRET is not set")
-	}
-
-	claims := jwt.MapClaims{
-		"user_id": userID,
-		"exp":     time.Now().Add(24 * time.Hour).Unix(),
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secret))
 }
