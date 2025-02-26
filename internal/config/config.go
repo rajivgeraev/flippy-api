@@ -38,7 +38,7 @@ func LoadConfig() *Config {
 		Port:     getEnv("PGPORT", "5432"),
 		User:     getEnv("PGUSER", "flippy_user"),
 		Password: getEnv("PGPASSWORD", "flippy_pass"),
-		Name:     getEnv("PGNAME", "flippy"),
+		Name:     getEnv("PGDATABASE", "flippy"),
 		SSLMode:  getEnv("PGSSLMODE", "disable"),
 	}
 
