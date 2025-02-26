@@ -34,12 +34,12 @@ func LoadConfig() *Config {
 	}
 
 	dbConfig := DatabaseConfig{
-		Host:     getEnv("DB_HOST", "localhost"),
-		Port:     getEnv("DB_PORT", "5432"),
-		User:     getEnv("DB_USER", "flippy_user"),
-		Password: getEnv("DB_PASSWORD", "flippy_pass"),
-		Name:     getEnv("DB_NAME", "flippy"),
-		SSLMode:  getEnv("DB_SSLMODE", "disable"),
+		Host:     getEnv("PGHOST", "localhost"),
+		Port:     getEnv("PGPORT", "5432"),
+		User:     getEnv("PGUSER", "flippy_user"),
+		Password: getEnv("PGPASSWORD", "flippy_pass"),
+		Name:     getEnv("PGNAME", "flippy"),
+		SSLMode:  getEnv("PGSSLMODE", "disable"),
 	}
 
 	// Формируем строку подключения к базе данных
