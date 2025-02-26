@@ -1,0 +1,60 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:latest
+    container_name: flippy-db
+    restart: always
+    environment:
+      POSTGRES_USER: flippy_user
+      POSTGRES_PASSWORD: flippy_pass
+      POSTGRES_DB: flippy
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flippy_user -d flippy"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    image: migrate/migrate
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations
+    command:
+      [
+        "-path",
+        "/migrations",
+        "-database",
+        "postgres://flippy_user:flippy_pass@db:5432/flippy?sslmode=disable",
+        "up",
+      ]
+
+  # auth-service:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: flippy-auth-service
+  #   restart: always
+  #   depends_on:
+  #     migrate:
+  #       condition: service_completed_successfully
+  #   environment:
+  #     - DB_HOST=db
+  #     - DB_PORT=5432
+  #     - DB_USER=flippy_user
+  #     - DB_PASSWORD=flippy_pass
+  #     - DB_NAME=flippy
+  #     - DB_SSLMODE=disable
+  #     - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+  #     - JWT_SECRET=${JWT_SECRET}
+  #   ports:
+  #     - "8080:8080"
+  #   command: ["./auth-service"]
+
+volumes:
+  pg_data:

@@ -1,10 +1,12 @@
 package auth
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/rajivgeraev/flippy-api/internal/config"
+	"github.com/rajivgeraev/flippy-api/internal/db"
 	"github.com/rajivgeraev/flippy-api/internal/utils"
 	initdata "github.com/telegram-mini-apps/init-data-golang"
 )
@@ -23,7 +25,12 @@ func NewAuthService(cfg *config.Config) *AuthService {
 	}
 }
 
-// TelegramAuthHandler проверяет initData, создает JWT и возвращает его
+// GetJWTService возвращает JWT сервис для использования в middleware
+func (s *AuthService) GetJWTService() *utils.JWTService {
+	return s.jwtService
+}
+
+// TelegramAuthHandler проверяет initData, создает или обновляет пользователя и возвращает JWT
 func (s *AuthService) TelegramAuthHandler(c fiber.Ctx) error {
 	var payload struct {
 		InitData string `json:"init_data"`
@@ -45,8 +52,39 @@ func (s *AuthService) TelegramAuthHandler(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Failed to parse initData"})
 	}
 
+	// Сериализуем raw_data для хранения
+	rawData, err := json.Marshal(data)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to serialize user data"})
+	}
+
+	// Создаем или обновляем пользователя
+	username := data.User.Username
+	if username == "" {
+		username = "user_" + data.User.FirstName
+	}
+
+	// Используем поля напрямую из структуры User
+	isPremium := data.User.IsPremium
+	languageCode := data.User.LanguageCode
+
+	user, err := db.CreateOrUpdateTelegramUser(
+		data.User.ID,
+		username,
+		data.User.FirstName,
+		data.User.LastName,
+		data.User.PhotoURL,
+		isPremium,
+		languageCode,
+		rawData,
+	)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create/update user"})
+	}
+
 	// Генерируем JWT
-	jwtToken, err := s.jwtService.GenerateToken(data.User.ID)
+	userIDString := user.ID.String()
+	jwtToken, err := s.jwtService.GenerateToken(userIDString)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate JWT"})
 	}
@@ -54,11 +92,11 @@ func (s *AuthService) TelegramAuthHandler(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"token": jwtToken,
 		"user": fiber.Map{
-			"id":         data.User.ID,
-			"first_name": data.User.FirstName,
-			"last_name":  data.User.LastName,
-			"username":   data.User.Username,
-			"photo_url":  data.User.PhotoURL,
+			"id":         userIDString,
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"username":   user.Username,
+			"avatar_url": user.AvatarURL,
 		},
 	})
 }

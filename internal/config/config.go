@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -11,6 +12,18 @@ import (
 type Config struct {
 	TelegramBotToken string
 	JWTSecret        string
+	DatabaseURL      string
+	DatabaseConfig   DatabaseConfig
+}
+
+// DatabaseConfig содержит конфигурацию базы данных
+type DatabaseConfig struct {
+	Host     string
+	Port     string
+	User     string
+	Password string
+	Name     string
+	SSLMode  string
 }
 
 // LoadConfig загружает переменные из .env
@@ -20,9 +33,24 @@ func LoadConfig() *Config {
 		log.Println("⚠️ .env файл не найден, используем переменные окружения")
 	}
 
+	dbConfig := DatabaseConfig{
+		Host:     getEnv("PGHOST", "localhost"),
+		Port:     getEnv("PGPORT", "5432"),
+		User:     getEnv("PGUSER", "flippy_user"),
+		Password: getEnv("PGPASSWORD", "flippy_pass"),
+		Name:     getEnv("PGDATABASE", "flippy"),
+		SSLMode:  getEnv("PGSSLMODE", "disable"),
+	}
+
+	// Формируем строку подключения к базе данных
+	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		dbConfig.User, dbConfig.Password, dbConfig.Host, dbConfig.Port, dbConfig.Name, dbConfig.SSLMode)
+
 	cfg := &Config{
 		TelegramBotToken: getEnv("TELEGRAM_BOT_TOKEN", ""),
 		JWTSecret:        getEnv("JWT_SECRET", ""),
+		DatabaseURL:      dbURL,
+		DatabaseConfig:   dbConfig,
 	}
 
 	if cfg.TelegramBotToken == "" || cfg.JWTSecret == "" {
