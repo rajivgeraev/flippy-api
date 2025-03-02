@@ -9,7 +9,13 @@ import (
 
 // SetupRoutes регистрирует маршруты в Fiber
 func (s *AuthService) SetupRoutes(app *fiber.App) {
+	// Основной маршрут для аутентификации через Telegram
 	app.Post("/api/auth/telegram", s.TelegramAuthHandler)
+
+	// Добавляем тестовые маршруты только для разработки
+	if s.cfg.AppEnv == "development" {
+		app.Post("/api/auth/test-login", s.TestLoginHandler)
+	}
 
 	// Защищенные маршруты
 	protected := app.Group("/api")

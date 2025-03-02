@@ -11,6 +11,8 @@ import (
 	"github.com/rajivgeraev/flippy-api/internal/db"
 	"github.com/rajivgeraev/flippy-api/internal/middleware"
 	"github.com/rajivgeraev/flippy-api/internal/services/auth"
+	"github.com/rajivgeraev/flippy-api/internal/services/cloudinary"
+	"github.com/rajivgeraev/flippy-api/internal/services/listing"
 )
 
 func main() {
@@ -25,7 +27,7 @@ func main() {
 
 	// Создаём экземпляр Fiber
 	app := fiber.New(fiber.Config{
-		AppName:      "Flippy Auth Service (MVP)",
+		AppName:      "Flippy API (MVP)",
 		ErrorHandler: errorHandler,
 	})
 
@@ -41,25 +43,17 @@ func main() {
 
 	// Создаём сервисы
 	authService := auth.NewAuthService(cfg)
+	cloudinaryService := cloudinary.NewCloudinaryService(cfg)
 
 	// Настраиваем middleware для аутентификации
 	authMiddleware := middleware.AuthMiddleware(authService.GetJWTService())
 
-	// Настраиваем публичные маршруты
-	app.Post("/api/auth/telegram", authService.TelegramAuthHandler)
-
-	// Настраиваем защищенные маршруты (пример)
-	protected := app.Group("/api")
-	protected.Use(authMiddleware)
-
-	// Пример защищенного маршрута
-	protected.Get("/profile", func(c fiber.Ctx) error {
-		userID := c.Locals("userID").(string)
-		return c.JSON(fiber.Map{"user_id": userID, "message": "Профиль пользователя"})
-	})
+	// Регистрируем маршруты
+	authService.SetupRoutes(app)
+	listing.SetupRoutes(app, authMiddleware, cloudinaryService)
 
 	// Запускаем сервер
-	log.Println("✅ Auth Service запущен на порту 8080")
+	log.Println("✅ Flippy API запущен на порту 8080")
 	log.Fatal(app.Listen(":8080"))
 }
 
