@@ -9,14 +9,15 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/google/uuid"
 	"github.com/rajivgeraev/flippy-api/internal/config"
+	"github.com/rajivgeraev/flippy-api/internal/utils"
 )
 
 // CloudinaryService предоставляет методы для работы с Cloudinary
 type CloudinaryService struct {
-	cfg          *config.Config
-	uploadFolder string
+	cfg        *config.Config
+	jwtService *utils.JWTService
+
 	uploadPreset string
 }
 
@@ -24,7 +25,7 @@ type CloudinaryService struct {
 func NewCloudinaryService(cfg *config.Config) *CloudinaryService {
 	return &CloudinaryService{
 		cfg:          cfg,
-		uploadFolder: cfg.CloudinaryConfig.UploadFolder,
+		jwtService:   utils.NewJWTService(cfg.JWTSecret),
 		uploadPreset: cfg.CloudinaryConfig.UploadPreset,
 	}
 }
@@ -58,29 +59,38 @@ func (s *CloudinaryService) GenerateSignature(params map[string]string) string {
 
 // GenerateUploadParams создаёт параметры для загрузки изображений
 func (s *CloudinaryService) GenerateUploadParams(c fiber.Ctx) error {
-	// Генерируем ID для объявления, если не передан
+	// Получаем `userID` из контекста
+	userID := c.Locals("userID").(string)
+
+	// Генерируем `listing_id`, если его нет
 	listingID := c.Query("listing_id")
 	if listingID == "" {
-		listingID = uuid.New().String()
+		return fiber.NewError(fiber.StatusBadRequest, "listing_id is required")
 	}
-
 	// Текущий timestamp
 	timestamp := fmt.Sprintf("%d", time.Now().Unix())
 
-	// Параметры для подписи
-	params := map[string]string{
-		"timestamp": timestamp,
+	// Формируем context (добавляем `listing_id`, если он передан)
+	context := fmt.Sprintf("user_id=%s|listing_id=%s", userID, listingID)
+
+	// Поля, которые подписываем
+	signParams := map[string]string{
+		"timestamp":     timestamp,
+		"context":       context,
+		"upload_preset": s.cfg.CloudinaryConfig.UploadPreset,
 	}
 
 	// Генерируем подпись
-	signature := s.GenerateSignature(params)
+	signature := s.GenerateSignature(signParams)
 
-	// Возвращаем параметры
+	// Формируем ответ
 	return c.JSON(fiber.Map{
-		"timestamp":  timestamp,
-		"signature":  signature,
-		"api_key":    s.cfg.CloudinaryConfig.APIKey,
-		"cloud_name": s.cfg.CloudinaryConfig.CloudName,
-		"listing_id": listingID,
+		"api_key":       s.cfg.CloudinaryConfig.APIKey,
+		"cloud_name":    s.cfg.CloudinaryConfig.CloudName,
+		"upload_preset": s.cfg.CloudinaryConfig.UploadPreset,
+		"context":       context,
+		"timestamp":     timestamp,
+		"signature":     signature,
+		"listing_id":    listingID,
 	})
 }

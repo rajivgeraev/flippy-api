@@ -9,10 +9,8 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/rajivgeraev/flippy-api/internal/config"
 	"github.com/rajivgeraev/flippy-api/internal/db"
-	"github.com/rajivgeraev/flippy-api/internal/middleware"
 	"github.com/rajivgeraev/flippy-api/internal/services/auth"
 	"github.com/rajivgeraev/flippy-api/internal/services/cloudinary"
-	"github.com/rajivgeraev/flippy-api/internal/services/listing"
 )
 
 func main() {
@@ -45,12 +43,9 @@ func main() {
 	authService := auth.NewAuthService(cfg)
 	cloudinaryService := cloudinary.NewCloudinaryService(cfg)
 
-	// Настраиваем middleware для аутентификации
-	authMiddleware := middleware.AuthMiddleware(authService.GetJWTService())
-
 	// Регистрируем маршруты
 	authService.SetupRoutes(app)
-	listing.SetupRoutes(app, authMiddleware, cloudinaryService)
+	cloudinaryService.SetupRoutes(app)
 
 	// Запускаем сервер
 	log.Println("✅ Flippy API запущен на порту 8080")

@@ -33,7 +33,6 @@ type CloudinaryConfig struct {
 	CloudName    string
 	APIKey       string
 	APISecret    string
-	UploadFolder string
 	UploadPreset string
 }
 
@@ -61,7 +60,6 @@ func LoadConfig() *Config {
 		CloudName:    getEnv("CLOUDINARY_CLOUD_NAME", ""),
 		APIKey:       getEnv("CLOUDINARY_API_KEY", ""),
 		APISecret:    getEnv("CLOUDINARY_API_SECRET", ""),
-		UploadFolder: getEnv("CLOUDINARY_UPLOAD_FOLDER", "flippy_mvp/listings"),
 		UploadPreset: getEnv("CLOUDINARY_UPLOAD_PRESET", "flippy_mvp"),
 	}
 

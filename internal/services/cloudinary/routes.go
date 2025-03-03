@@ -1,24 +1,21 @@
-package listing
+package cloudinary
 
 import (
 	"github.com/gofiber/fiber/v3"
-	"github.com/rajivgeraev/flippy-api/internal/services/cloudinary"
+	"github.com/rajivgeraev/flippy-api/internal/middleware"
 )
 
 // SetupRoutes настраивает маршруты для API объявлений
-func SetupRoutes(app *fiber.App, authMiddleware fiber.Handler, cloudinaryService *cloudinary.CloudinaryService) {
+func (s *CloudinaryService) SetupRoutes(app *fiber.App) {
 	// Группа для API объявлений
 	api := app.Group("/api")
 
-	// Публичные маршруты
-	// Будут добавлены позже
-
 	// Защищенные маршруты
 	protected := api.Group("/")
-	protected.Use(authMiddleware)
+	protected.Use(middleware.AuthMiddleware(s.jwtService))
 
 	// Маршрут для получения параметров загрузки
-	protected.Get("/upload/params", cloudinaryService.GenerateUploadParams)
+	protected.Get("/upload/params", s.GenerateUploadParams)
 
 	// Другие маршруты для работы с объявлениями будут добавлены позже
 }
