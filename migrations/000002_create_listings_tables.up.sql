@@ -16,7 +16,7 @@ CREATE TABLE listings (
     description TEXT,
     categories JSONB DEFAULT '[]',
     allow_trade BOOLEAN DEFAULT TRUE,
-    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    status VARCHAR(20) NOT NULL DEFAULT 'draft', -- Добавили статус 'draft'
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
