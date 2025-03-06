@@ -1,3 +1,4 @@
+// internal/services/cloudinary/cloudinary_service.go
 package cloudinary
 
 import (
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/rajivgeraev/flippy-api/internal/config"
 	"github.com/rajivgeraev/flippy-api/internal/utils"
 )
@@ -59,19 +61,20 @@ func (s *CloudinaryService) GenerateSignature(params map[string]string) string {
 
 // GenerateUploadParams создаёт параметры для загрузки изображений
 func (s *CloudinaryService) GenerateUploadParams(c fiber.Ctx) error {
-	// Получаем `userID` из контекста
+	// Получаем userID из контекста аутентификации
 	userID := c.Locals("userID").(string)
-
-	// Генерируем `listing_id`, если его нет
-	listingID := c.Query("listing_id")
-	if listingID == "" {
-		return fiber.NewError(fiber.StatusBadRequest, "listing_id is required")
+	if userID == "" {
+		return fiber.NewError(fiber.StatusUnauthorized, "Пользователь не авторизован")
 	}
+
+	// Генерируем upload_group_id - уникальный идентификатор для группы изображений
+	uploadGroupID := uuid.New().String()
+
 	// Текущий timestamp
 	timestamp := fmt.Sprintf("%d", time.Now().Unix())
 
-	// Формируем context (добавляем `listing_id`, если он передан)
-	context := fmt.Sprintf("user_id=%s|listing_id=%s", userID, listingID)
+	// Формируем context с userID и uploadGroupID
+	context := fmt.Sprintf("user_id=%s|upload_group_id=%s", userID, uploadGroupID)
 
 	// Поля, которые подписываем
 	signParams := map[string]string{
@@ -85,12 +88,12 @@ func (s *CloudinaryService) GenerateUploadParams(c fiber.Ctx) error {
 
 	// Формируем ответ
 	return c.JSON(fiber.Map{
-		"api_key":       s.cfg.CloudinaryConfig.APIKey,
-		"cloud_name":    s.cfg.CloudinaryConfig.CloudName,
-		"upload_preset": s.cfg.CloudinaryConfig.UploadPreset,
-		"context":       context,
-		"timestamp":     timestamp,
-		"signature":     signature,
-		"listing_id":    listingID,
+		"api_key":         s.cfg.CloudinaryConfig.APIKey,
+		"cloud_name":      s.cfg.CloudinaryConfig.CloudName,
+		"upload_preset":   s.cfg.CloudinaryConfig.UploadPreset,
+		"context":         context,
+		"timestamp":       timestamp,
+		"signature":       signature,
+		"upload_group_id": uploadGroupID,
 	})
 }

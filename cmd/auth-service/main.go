@@ -58,7 +58,9 @@ func main() {
 			{"slug": "action_figures", "name_ru": "Экшн-фигурки", "name_en": "Action Figures"},
 			{"slug": "other", "name_ru": "Другое", "name_en": "Other"},
 		}
-		return c.JSON(categories)
+		return c.JSON(fiber.Map{
+			"categories": categories,
+		})
 	})
 
 	// Создаём сервисы
