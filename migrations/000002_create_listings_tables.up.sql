@@ -26,10 +26,12 @@ CREATE TABLE listing_images (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     listing_id UUID NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
     url TEXT NOT NULL,
+    preview_url TEXT,
     public_id VARCHAR(255) NOT NULL,
     file_name VARCHAR(255),
     is_main BOOLEAN DEFAULT FALSE,
     position INT NOT NULL DEFAULT 0,
+    metadata JSONB DEFAULT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

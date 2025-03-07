@@ -11,6 +11,7 @@ import (
 	"github.com/rajivgeraev/flippy-api/internal/db"
 	"github.com/rajivgeraev/flippy-api/internal/services/auth"
 	"github.com/rajivgeraev/flippy-api/internal/services/cloudinary"
+	"github.com/rajivgeraev/flippy-api/internal/services/listing"
 )
 
 func main() {
@@ -66,10 +67,12 @@ func main() {
 	// Создаём сервисы
 	authService := auth.NewAuthService(cfg)
 	cloudinaryService := cloudinary.NewCloudinaryService(cfg)
+	listingService := listing.NewListingService(cfg)
 
 	// Регистрируем маршруты
 	authService.SetupRoutes(app)
 	cloudinaryService.SetupRoutes(app)
+	listingService.SetupRoutes(app)
 
 	// Запускаем сервер
 	log.Println("✅ Flippy API запущен на порту 8080")
