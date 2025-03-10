@@ -14,6 +14,7 @@ type Listing struct {
 	Title       string         `json:"title"`
 	Description string         `json:"description"`
 	Categories  []string       `json:"categories"`
+	Condition   string         `json:"condition"`
 	AllowTrade  bool           `json:"allow_trade"`
 	Status      string         `json:"status"`
 	Images      []ListingImage `json:"images"`

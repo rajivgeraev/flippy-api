@@ -87,6 +87,15 @@ func (s *ListingService) CreateListing(c fiber.Ctx) error {
 		requestData.Status = "draft" // По умолчанию - черновик
 	}
 
+	validConditions := map[string]bool{
+		"new": true, "excellent": true, "good": true,
+		"used": true, "needs_repair": true, "damaged": true,
+	}
+
+	if !validConditions[requestData.Condition] {
+		requestData.Condition = "new" // По умолчанию - новое
+	}
+
 	// Создаем ID для нового объявления
 	listingID := uuid.New()
 
@@ -103,9 +112,10 @@ func (s *ListingService) CreateListing(c fiber.Ctx) error {
 
 	// Вставляем объявление
 	_, err = tx.Exec(ctx, `
-		INSERT INTO listings (id, user_id, title, description, categories, allow_trade, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, listingID, userUUID, requestData.Title, requestData.Description, requestData.Categories, requestData.AllowTrade, requestData.Status)
+		INSERT INTO listings (id, user_id, title, description, categories, condition, allow_trade, status)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, listingID, userUUID, requestData.Title, requestData.Description,
+		requestData.Categories, requestData.Condition, requestData.AllowTrade, requestData.Status)
 
 	if err != nil {
 		log.Printf("Ошибка вставки объявления: %v", err)
@@ -189,7 +199,7 @@ func (s *ListingService) GetMyListings(c fiber.Ctx) error {
 
 	if status == "all" {
 		rows, queryErr = db.Pool.Query(ctx, `
-			SELECT id, user_id, title, description, categories, allow_trade, status, created_at, updated_at
+			SELECT id, user_id, title, description, categories, condition, allow_trade, status, created_at, updated_at
 			FROM listings
 			WHERE user_id = $1
 			ORDER BY updated_at DESC
@@ -197,7 +207,7 @@ func (s *ListingService) GetMyListings(c fiber.Ctx) error {
 		`, userUUID, limit, offset)
 	} else {
 		rows, queryErr = db.Pool.Query(ctx, `
-			SELECT id, user_id, title, description, categories, allow_trade, status, created_at, updated_at
+			SELECT id, user_id, title, description, categories, condition, allow_trade, status, created_at, updated_at
 			FROM listings
 			WHERE user_id = $1 AND status = $2
 			ORDER BY updated_at DESC
@@ -220,6 +230,7 @@ func (s *ListingService) GetMyListings(c fiber.Ctx) error {
 			&listing.Title,
 			&listing.Description,
 			&listing.Categories,
+			&listing.Condition,
 			&listing.AllowTrade,
 			&listing.Status,
 			&listing.CreatedAt,
@@ -332,7 +343,7 @@ func (s *ListingService) GetListing(c fiber.Ctx) error {
 	var listing models.Listing
 	var ownerID uuid.UUID
 	err = db.Pool.QueryRow(ctx, `
-		SELECT id, user_id, title, description, categories, allow_trade, status, created_at, updated_at
+		SELECT id, user_id, title, description, categories, condition, allow_trade, status, created_at, updated_at
 		FROM listings
 		WHERE id = $1
 	`, listingUUID).Scan(
@@ -341,6 +352,7 @@ func (s *ListingService) GetListing(c fiber.Ctx) error {
 		&listing.Title,
 		&listing.Description,
 		&listing.Categories,
+		&listing.Condition,
 		&listing.AllowTrade,
 		&listing.Status,
 		&listing.CreatedAt,
@@ -462,13 +474,14 @@ func (s *ListingService) UpdateListing(c fiber.Ctx) error {
 
 	// Извлекаем данные из запроса
 	var requestData struct {
-		Title       string         `json:"title"`
-		Description string         `json:"description"`
-		Categories  []string       `json:"categories"`
-		Condition   string         `json:"condition"`
-		AllowTrade  bool           `json:"allow_trade"`
-		Status      string         `json:"status"`
-		Images      []RequestImage `json:"images"`
+		Title         string         `json:"title"`
+		Description   string         `json:"description"`
+		Categories    []string       `json:"categories"`
+		Condition     string         `json:"condition"`
+		AllowTrade    bool           `json:"allow_trade"`
+		Status        string         `json:"status"`
+		UploadGroupID string         `json:"upload_group_id"`
+		Images        []RequestImage `json:"images"`
 	}
 
 	if err := c.Bind().Body(&requestData); err != nil {
@@ -484,6 +497,15 @@ func (s *ListingService) UpdateListing(c fiber.Ctx) error {
 	// Проверка статуса
 	if requestData.Status != "active" && requestData.Status != "draft" {
 		requestData.Status = "draft" // По умолчанию - черновик
+	}
+
+	validConditions := map[string]bool{
+		"new": true, "excellent": true, "good": true,
+		"used": true, "needs_repair": true, "damaged": true,
+	}
+
+	if !validConditions[requestData.Condition] {
+		requestData.Condition = "new" // По умолчанию - новое
 	}
 
 	// Проверяем, что объявление существует и принадлежит пользователю
@@ -516,9 +538,9 @@ func (s *ListingService) UpdateListing(c fiber.Ctx) error {
 	// Обновляем основную информацию объявления
 	_, err = tx.Exec(ctx, `
 		UPDATE listings 
-		SET title = $1, description = $2, categories = $3, allow_trade = $4, status = $5, updated_at = NOW()
-		WHERE id = $6
-	`, requestData.Title, requestData.Description, requestData.Categories, requestData.AllowTrade, requestData.Status, listingUUID)
+		SET title = $1, description = $2, categories = $3, condition = $4, allow_trade = $5, status = $6, updated_at = NOW()
+		WHERE id = $7
+	`, requestData.Title, requestData.Description, requestData.Categories, requestData.Condition, requestData.AllowTrade, requestData.Status, listingUUID)
 
 	if err != nil {
 		log.Printf("Ошибка обновления объявления: %v", err)
@@ -653,5 +675,146 @@ func (s *ListingService) DeleteListing(c fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"success": true,
 		"message": "Объявление успешно удалено",
+	})
+}
+
+// GetPublicListings возвращает список публичных активных объявлений с пагинацией
+func (s *ListingService) GetPublicListings(c fiber.Ctx) error {
+	// Параметры пагинации
+	limit := 20 // По умолчанию показываем 20 объявлений
+	offsetStr := c.Query("offset", "0")
+	offset, _ := strconv.Atoi(offsetStr)
+
+	// Получаем объявления из базы данных
+	ctx, cancel := db.GetContext()
+	defer cancel()
+
+	var listings []models.Listing
+
+	rows, queryErr := db.Pool.Query(ctx, `
+        SELECT id, user_id, title, description, categories, condition, allow_trade, status, created_at, updated_at
+        FROM listings
+        WHERE status = 'active'  -- Берем только активные объявления
+        ORDER BY created_at DESC  -- Сначала новые
+        LIMIT $1 OFFSET $2
+    `, limit, offset)
+
+	if queryErr != nil {
+		log.Printf("Ошибка запроса объявлений: %v", queryErr)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Ошибка получения объявлений"})
+	}
+	defer rows.Close()
+
+	// Обрабатываем результаты
+	for rows.Next() {
+		var listing models.Listing
+		if err := rows.Scan(
+			&listing.ID,
+			&listing.UserID,
+			&listing.Title,
+			&listing.Description,
+			&listing.Categories,
+			&listing.Condition,
+			&listing.AllowTrade,
+			&listing.Status,
+			&listing.CreatedAt,
+			&listing.UpdatedAt,
+		); err != nil {
+			log.Printf("Ошибка сканирования строки: %v", err)
+			continue
+		}
+
+		// Получаем изображения для объявления
+		imgRows, err := db.Pool.Query(ctx, `
+            SELECT id, listing_id, url, preview_url, public_id, file_name, is_main, position, metadata, created_at
+            FROM listing_images
+            WHERE listing_id = $1
+            ORDER BY position ASC
+        `, listing.ID)
+
+		if err != nil {
+			log.Printf("Ошибка запроса изображений: %v", err)
+			continue
+		}
+
+		var images []models.ListingImage
+		for imgRows.Next() {
+			var img models.ListingImage
+			var metadataBytes []byte
+
+			if err := imgRows.Scan(
+				&img.ID,
+				&img.ListingID,
+				&img.URL,
+				&img.PreviewURL,
+				&img.PublicID,
+				&img.FileName,
+				&img.IsMain,
+				&img.Position,
+				&metadataBytes,
+				&img.CreatedAt,
+			); err != nil {
+				log.Printf("Ошибка сканирования изображения: %v", err)
+				continue
+			}
+
+			// Преобразуем метаданные из JSON, если они есть
+			if metadataBytes != nil {
+				if err := json.Unmarshal(metadataBytes, &img.Metadata); err != nil {
+					log.Printf("Ошибка разбора метаданных: %v", err)
+				}
+			}
+
+			images = append(images, img)
+		}
+		imgRows.Close()
+
+		listing.Images = images
+
+		// Для каждого объявления получаем информацию о пользователе
+		var user struct {
+			ID        uuid.UUID `json:"id"`
+			Username  string    `json:"username"`
+			FirstName string    `json:"first_name"`
+			LastName  string    `json:"last_name"`
+			AvatarURL string    `json:"avatar_url"`
+		}
+
+		err = db.Pool.QueryRow(ctx, `
+            SELECT id, username, first_name, last_name, avatar_url
+            FROM users
+            WHERE id = $1
+        `, listing.UserID).Scan(
+			&user.ID,
+			&user.Username,
+			&user.FirstName,
+			&user.LastName,
+			&user.AvatarURL,
+		)
+
+		// Даже если не удалось получить данные пользователя, мы все равно добавляем объявление
+		if err != nil && err != pgx.ErrNoRows {
+			log.Printf("Ошибка получения данных пользователя: %v", err)
+		}
+
+		listings = append(listings, listing)
+	}
+
+	// Получаем общее количество объявлений для пагинации
+	var total int
+	countErr := db.Pool.QueryRow(ctx, `
+        SELECT COUNT(*) FROM listings WHERE status = 'active'
+    `).Scan(&total)
+
+	if countErr != nil {
+		log.Printf("Ошибка подсчета объявлений: %v", countErr)
+		// Игнорируем ошибку, просто не вернем общее количество
+	}
+
+	return c.JSON(fiber.Map{
+		"listings": listings,
+		"total":    total,
+		"limit":    limit,
+		"offset":   offset,
 	})
 }

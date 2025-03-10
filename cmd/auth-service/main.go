@@ -40,6 +40,13 @@ func main() {
 		AllowCredentials: false,
 	}))
 
+	// Создаём сервисы
+	authService := auth.NewAuthService(cfg)
+	cloudinaryService := cloudinary.NewCloudinaryService(cfg)
+	listingService := listing.NewListingService(cfg)
+
+	// Вначале регистрируем публичные маршруты
+	listingService.SetupPublicRoutes(app)
 	// Временный эндпоинт для категорий
 	app.Get("/api/categories", func(c fiber.Ctx) error {
 		categories := []map[string]string{
@@ -63,11 +70,6 @@ func main() {
 			"categories": categories,
 		})
 	})
-
-	// Создаём сервисы
-	authService := auth.NewAuthService(cfg)
-	cloudinaryService := cloudinary.NewCloudinaryService(cfg)
-	listingService := listing.NewListingService(cfg)
 
 	// Регистрируем маршруты
 	authService.SetupRoutes(app)

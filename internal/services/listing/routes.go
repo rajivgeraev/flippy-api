@@ -28,3 +28,9 @@ func (s *ListingService) SetupRoutes(app *fiber.App) {
 	// Маршрут для удаления объявления
 	api.Delete("/:id", s.DeleteListing)
 }
+
+// SetupPublicRoutes настраивает публичные маршруты для листингов
+func (s *ListingService) SetupPublicRoutes(app *fiber.App) {
+	// Публичный маршрут для списка объявлений
+	app.Get("/api/listings", s.GetPublicListings)
+}
