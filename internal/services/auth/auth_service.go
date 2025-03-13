@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/rajivgeraev/flippy-api/internal/config"
 	"github.com/rajivgeraev/flippy-api/internal/db"
 	"github.com/rajivgeraev/flippy-api/internal/utils"
@@ -98,5 +99,40 @@ func (s *AuthService) TelegramAuthHandler(c fiber.Ctx) error {
 			"username":   user.Username,
 			"avatar_url": user.AvatarURL,
 		},
+	})
+}
+
+// TestLoginHandler генерирует JWT для тестирования (только для разработки)
+func (s *AuthService) TestLoginHandler(c fiber.Ctx) error {
+	// Этот метод должен быть доступен только в режиме разработки
+	if s.cfg.AppEnv != "development" {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Route not found",
+		})
+	}
+
+	var payload struct {
+		UserID string `json:"user_id"`
+	}
+
+	if err := c.Bind().Body(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request"})
+	}
+
+	// Проверяем, что userID является валидным UUID
+	_, err := uuid.Parse(payload.UserID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid user ID format"})
+	}
+
+	// Генерируем JWT
+	jwtToken, err := s.jwtService.GenerateToken(payload.UserID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate JWT"})
+	}
+
+	return c.JSON(fiber.Map{
+		"jwt_token": jwtToken,
+		"user_id":   payload.UserID,
 	})
 }

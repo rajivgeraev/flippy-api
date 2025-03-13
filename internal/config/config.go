@@ -14,6 +14,8 @@ type Config struct {
 	JWTSecret        string
 	DatabaseURL      string
 	DatabaseConfig   DatabaseConfig
+	CloudinaryConfig CloudinaryConfig
+	AppEnv           string // Добавляем окружение приложения
 }
 
 // DatabaseConfig содержит конфигурацию базы данных
@@ -24,6 +26,14 @@ type DatabaseConfig struct {
 	Password string
 	Name     string
 	SSLMode  string
+}
+
+// CloudinaryConfig содержит конфигурацию для Cloudinary
+type CloudinaryConfig struct {
+	CloudName    string
+	APIKey       string
+	APISecret    string
+	UploadPreset string
 }
 
 // LoadConfig загружает переменные из .env
@@ -46,11 +56,20 @@ func LoadConfig() *Config {
 	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
 		dbConfig.User, dbConfig.Password, dbConfig.Host, dbConfig.Port, dbConfig.Name, dbConfig.SSLMode)
 
+	cloudinaryConfig := CloudinaryConfig{
+		CloudName:    getEnv("CLOUDINARY_CLOUD_NAME", ""),
+		APIKey:       getEnv("CLOUDINARY_API_KEY", ""),
+		APISecret:    getEnv("CLOUDINARY_API_SECRET", ""),
+		UploadPreset: getEnv("CLOUDINARY_UPLOAD_PRESET", "flippy_mvp"),
+	}
+
 	cfg := &Config{
 		TelegramBotToken: getEnv("TELEGRAM_BOT_TOKEN", ""),
 		JWTSecret:        getEnv("JWT_SECRET", ""),
 		DatabaseURL:      dbURL,
 		DatabaseConfig:   dbConfig,
+		CloudinaryConfig: cloudinaryConfig,
+		AppEnv:           getEnv("APP_ENV", "production"), // По умолчанию production
 	}
 
 	if cfg.TelegramBotToken == "" || cfg.JWTSecret == "" {
