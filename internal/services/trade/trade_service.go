@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
@@ -282,6 +283,16 @@ func (s *TradeService) GetMyTrades(c fiber.Ctx) error {
 		trade.Sender = s.getUserInfo(ctx, trade.SenderID)
 		trade.Receiver = s.getUserInfo(ctx, trade.ReceiverID)
 
+		// Получаем ID чата, связанного с этим обменом (если есть)
+		var chatID *uuid.UUID
+		err = db.Pool.QueryRow(ctx, `
+            SELECT id FROM chats WHERE trade_id = $1 LIMIT 1
+        `, trade.ID).Scan(&chatID)
+
+		if err == nil && chatID != nil {
+			trade.ChatID = *chatID // Добавляем ID чата к данным обмена
+		}
+
 		trades = append(trades, trade)
 	}
 
@@ -385,6 +396,38 @@ func (s *TradeService) UpdateTradeStatus(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Ошибка обновления статуса предложения"})
 	}
 
+	// Если обмен принят, создаем чат между участниками
+	var chatID uuid.UUID
+	if requestData.Status == "accepted" {
+		// Создаем чат
+		chatID = uuid.New()
+		now := time.Now()
+		initialMessage := "Обмен был принят. Вы можете обсудить детали здесь."
+
+		// Создаем запись в таблице чатов
+		_, err = db.Pool.Exec(ctx, `
+            INSERT INTO chats (id, trade_id, sender_id, receiver_id, created_at, updated_at, last_message_text, last_message_time, is_active)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `, chatID, tradeUUID, trade.SenderID, trade.ReceiverID, now, now, initialMessage, now, true)
+
+		if err != nil {
+			log.Printf("Ошибка создания чата для обмена: %v", err)
+			// Не возвращаем ошибку, т.к. основная функциональность выполнена
+		} else {
+			// Добавляем системное сообщение
+			messageID := uuid.New()
+			_, err = db.Pool.Exec(ctx, `
+                INSERT INTO messages (id, chat_id, sender_id, text, is_read, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `, messageID, chatID, trade.SenderID, initialMessage, false, now, now)
+
+			if err != nil {
+				log.Printf("Ошибка создания системного сообщения: %v", err)
+				// Не возвращаем ошибку, т.к. основная функциональность выполнена
+			}
+		}
+	}
+
 	// Формируем сообщение в зависимости от нового статуса
 	var message string
 	switch requestData.Status {
@@ -396,12 +439,19 @@ func (s *TradeService) UpdateTradeStatus(c fiber.Ctx) error {
 		message = "Предложение обмена отменено"
 	}
 
-	return c.JSON(fiber.Map{
+	response := fiber.Map{
 		"success":  true,
 		"message":  message,
 		"trade_id": tradeID,
 		"status":   requestData.Status,
-	})
+	}
+
+	// Если был создан чат, включаем его ID в ответ
+	if requestData.Status == "accepted" {
+		response["chat_id"] = chatID
+	}
+
+	return c.JSON(response)
 }
 
 // getListingInfo получает информацию об объявлении

@@ -7,6 +7,7 @@ import (
 )
 
 // Trade представляет предложение об обмене
+// Trade представляет предложение об обмене
 type Trade struct {
 	ID                uuid.UUID `json:"id"`
 	SenderID          uuid.UUID `json:"sender_id"`
@@ -19,10 +20,11 @@ type Trade struct {
 	UpdatedAt         time.Time `json:"updated_at"`
 
 	// Дополнительные поля для API
-	SenderListing   *Listing `json:"sender_listing,omitempty"`
-	ReceiverListing *Listing `json:"receiver_listing,omitempty"`
-	Sender          *User    `json:"sender,omitempty"`
-	Receiver        *User    `json:"receiver,omitempty"`
+	SenderListing   *Listing  `json:"sender_listing,omitempty"`
+	ReceiverListing *Listing  `json:"receiver_listing,omitempty"`
+	Sender          *User     `json:"sender,omitempty"`
+	Receiver        *User     `json:"receiver,omitempty"`
+	ChatID          uuid.UUID `json:"chat_id,omitempty"` // ID связанного чата
 }
 
 // User представляет минимальную информацию о пользователе для API
