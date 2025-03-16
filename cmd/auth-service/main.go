@@ -10,6 +10,7 @@ import (
 	"github.com/rajivgeraev/flippy-api/internal/config"
 	"github.com/rajivgeraev/flippy-api/internal/db"
 	"github.com/rajivgeraev/flippy-api/internal/services/auth"
+	"github.com/rajivgeraev/flippy-api/internal/services/chat"
 	"github.com/rajivgeraev/flippy-api/internal/services/cloudinary"
 	"github.com/rajivgeraev/flippy-api/internal/services/listing"
 	"github.com/rajivgeraev/flippy-api/internal/services/trade"
@@ -46,6 +47,7 @@ func main() {
 	cloudinaryService := cloudinary.NewCloudinaryService(cfg)
 	listingService := listing.NewListingService(cfg)
 	tradeService := trade.NewTradeService(cfg)
+	chatService := chat.NewChatService(cfg)
 
 	// Вначале регистрируем публичные маршруты
 	listingService.SetupPublicRoutes(app)
@@ -78,6 +80,7 @@ func main() {
 	cloudinaryService.SetupRoutes(app)
 	listingService.SetupRoutes(app)
 	tradeService.SetupRoutes(app)
+	chatService.SetupRoutes(app)
 
 	// Запускаем сервер
 	log.Println("✅ Flippy API запущен на порту 8080")
